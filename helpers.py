@@ -1,8 +1,8 @@
 """
-Helper functions for date and time conversion.
+Miscellaneous helper functions for the NEO Explorer.
 
-This module provides utility functions for converting between calendar dates
-and Python datetime objects.
+This module provides utility functions for date/time conversion and other
+helpers.
 """
 
 from datetime import datetime
@@ -10,35 +10,36 @@ from datetime import datetime
 
 def cd_to_datetime(calendar_date):
     """
-    Convert a calendar date string to a datetime object.
-    
+    Convert a NASA JPL calendar date string to a datetime object.
+
+    NASA JPL calendar dates are formatted as strings like "2000-Jan-01 12:00".
+
     Args:
-        calendar_date: A calendar date string in the format "YYYY-MMM-DD HH:MM"
-                      where MMM is the three-letter month abbreviation.
-    
+        calendar_date: A calendar date string from NASA JPL.
+
     Returns:
-        A datetime object representing the calendar date.
+        A datetime object corresponding to the given calendar date.
+
+    Raises:
+        ValueError: If the calendar date format is invalid.
     """
-    # Parse the calendar date string
-    # Format: "YYYY-MMM-DD HH:MM" (e.g., "1900-Jan-01 00:00")
     try:
+        # Parse the date string in the expected format
         return datetime.strptime(calendar_date, "%Y-%b-%d %H:%M")
-    except ValueError:
-        # Try alternative format without time
-        try:
-            return datetime.strptime(calendar_date, "%Y-%b-%d")
-        except ValueError:
-            raise ValueError(f"Invalid calendar date format: {calendar_date}")
+    except ValueError as exc:
+        # Re-raise with more context
+        raise ValueError(f"Invalid calendar date format: "
+                         f"{calendar_date}") from exc
 
 
 def datetime_to_str(dt):
     """
-    Convert a datetime object to a string representation.
-    
+    Convert a datetime object to a formatted string.
+
     Args:
         dt: A datetime object.
-    
+
     Returns:
-        A string representation of the datetime in the format "YYYY-MM-DD HH:MM".
+        A formatted string representation of the datetime.
     """
-    return dt.strftime("%Y-%m-%d %H:%M") 
+    return dt.strftime("%Y-%m-%d %H:%M")

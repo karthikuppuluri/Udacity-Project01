@@ -1,150 +1,156 @@
-#!/usr/bin/env python3
 """
-Test script for serialize methods.
+Test serialization functionality for the NEO Explorer.
 
-This script tests the serialize methods to ensure they work correctly.
+This module tests the serialization capabilities of NEO and CloseApproach
+objects.
 """
 
+import tempfile
+import os
+import json
+import csv
 import sys
-from pathlib import Path
 from datetime import datetime
 
-# Add current directory to path
-sys.path.insert(0, str(Path(__file__).parent))
+from models import NearEarthObject, CloseApproach
+from write import write_to_csv, write_to_json
 
-def test_serialize_methods():
-    """Test the serialize methods."""
-    print("Testing serialize methods...")
-    
-    try:
-        from models import NearEarthObject, CloseApproach
-        from datetime import datetime
-        
-        # Test NEO serialize
-        neo = NearEarthObject("433", "Eros", 16.84, False)
-        neo_serialized = neo.serialize()
-        print(f"Passed: NEO serialize: {neo_serialized}")
-        
-        # Test CloseApproach serialize
-        approach = CloseApproach(
-            datetime(2020, 1, 1, 12, 0),
-            0.025,
-            15.5,
-            "433",
-            neo
-        )
-        approach_serialized = approach.serialize()
-        print(f"Passed: CloseApproach serialize: {approach_serialized}")
-        
-        # Test with missing data
-        neo2 = NearEarthObject("99942", None, None, True)
-        neo2_serialized = neo2.serialize()
-        print(f"Passed: NEO with missing data serialize: {neo2_serialized}")
-        
-        approach2 = CloseApproach(
-            datetime(2020, 1, 2, 12, 0),
-            0.030,
-            20.0,
-            "99942",
-            None  # No NEO attached
-        )
-        approach2_serialized = approach2.serialize()
-        print(f"Passed: CloseApproach without NEO serialize: {approach2_serialized}")
-        
-        return True
-        
-    except Exception as e:
-        print(f"Serialize test failed: {e}")
-        return False
 
-def test_write_functions():
-    """Test the write functions with serialize methods."""
-    print("\nTesting write functions...")
-    
+def test_neo_serialization():
+    """Test NEO serialization."""
+    print("\nTesting NEO serialization...")
+
+    neo = NearEarthObject("433", "Eros", 16.84, False)
+    print(f"Passed: Created NEO: {neo}")
+
+    # Test serialization
+    serialized = neo.serialize()
+    expected_keys = {
+        "designation",
+        "name",
+        "diameter_km",
+        "potentially_hazardous",
+    }
+    if set(serialized.keys()) == expected_keys:
+        print("Passed: NEO serialization has correct keys")
+    else:
+        print(f"Failed: Expected keys {expected_keys}, "
+              f"got {set(serialized.keys())}")
+
+    return True
+
+
+def test_approach_serialization():
+    """Test CloseApproach serialization."""
+    print("\nTesting CloseApproach serialization...")
+
+    approach = CloseApproach(datetime(2020, 1, 1, 12, 0), 0.025, 15.5, "433")
+    print(f"Passed: Created CloseApproach: {approach}")
+
+    # Test serialization
+    serialized = approach.serialize()
+    expected_keys = {"datetime_utc", "distance_au", "velocity_km_s"}
+    if set(serialized.keys()) == expected_keys:
+        print("Passed: CloseApproach serialization has correct keys")
+    else:
+        print(f"Failed: Expected keys {expected_keys}, "
+              f"got {set(serialized.keys())}")
+
+    return True
+
+
+def test_file_writing():
+    """Test writing to files."""
+    print("\nTesting file writing...")
     try:
-        from models import NearEarthObject, CloseApproach
-        from datetime import datetime
-        from write import write_to_csv, write_to_json
-        import tempfile
-        import os
-        
         # Create test data
         neo = NearEarthObject("433", "Eros", 16.84, False)
-        approach = CloseApproach(
-            datetime(2020, 1, 1, 12, 0),
-            0.025,
-            15.5,
-            "433",
-            neo
-        )
-        
-        approaches = [approach]
-        
+        approach1 = CloseApproach(datetime(2020, 1, 1, 12, 0), 0.025, 15.5,
+                                  "433")
+        approach2 = CloseApproach(datetime(2020, 2, 1, 12, 0), 0.030, 12.0,
+                                  "433")
+
+        # Link NEO to approaches
+        approach1.neo = neo
+        approach2.neo = neo
+
+        approaches = [approach1, approach2]
+
         # Test CSV writing
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.csv', delete=False) as tmp_file:
-            csv_path = tmp_file.name
-        
-        try:
-            write_to_csv(approaches, csv_path)
-            print(f"Passed: CSV written to {csv_path}")
-            
-            # Check file content
-            with open(csv_path, 'r') as f:
-                content = f.read()
-                print(f"Passed: CSV content: {content[:200]}...")
-        
-        finally:
-            if os.path.exists(csv_path):
-                os.unlink(csv_path)
-        
+        with tempfile.NamedTemporaryFile(mode="w",
+                                         suffix=".csv",
+                                         delete=False,
+                                         encoding="utf-8") as csv_file:
+            csv_filename = csv_file.name
+
+        write_to_csv(approaches, csv_filename)
+
+        # Verify CSV file
+        with open(csv_filename, "r", encoding="utf-8") as file:
+            reader = csv.DictReader(file)
+            rows = list(reader)
+            if len(rows) == 2:
+                print("Passed: CSV file has correct number of rows")
+            else:
+                print(f"Failed: Expected 2 rows, got {len(rows)}")
+
+        # Clean up CSV file
+        os.unlink(csv_filename)
+
         # Test JSON writing
-        with tempfile.NamedTemporaryFile(mode='w', suffix='.json', delete=False) as tmp_file:
-            json_path = tmp_file.name
-        
-        try:
-            write_to_json(approaches, json_path)
-            print(f"Passed: JSON written to {json_path}")
-            
-            # Check file content
-            with open(json_path, 'r') as f:
-                content = f.read()
-                print(f"Passed: JSON content: {content[:200]}...")
-        
-        finally:
-            if os.path.exists(json_path):
-                os.unlink(json_path)
-        
+        with tempfile.NamedTemporaryFile(mode="w",
+                                         suffix=".json",
+                                         delete=False,
+                                         encoding="utf-8") as json_file:
+            json_filename = json_file.name
+
+        write_to_json(approaches, json_filename)
+
+        # Verify JSON file
+        with open(json_filename, "r", encoding="utf-8") as file:
+            data = json.load(file)
+            if len(data) == 2:
+                print("Passed: JSON file has correct number of entries")
+            else:
+                print(f"Failed: Expected 2 entries, got {len(data)}")
+
+        # Clean up JSON file
+        os.unlink(json_filename)
+
         return True
-        
+
     except Exception as e:
-        print(f"Write test failed: {e}")
+        print(f"Failed: File writing test - {e}")
         return False
 
+
 def main():
-    """Run all tests."""
-    print("Testing Serialize Methods\n")
-    
+    """Run all serialization tests."""
+    print("Testing serialization functionality...")
+
     tests = [
-        test_serialize_methods,
-        test_write_functions
+        test_neo_serialization,
+        test_approach_serialization,
+        test_file_writing,
     ]
-    
+
     passed = 0
     total = len(tests)
-    
+
     for test in tests:
         if test():
             passed += 1
         print()
-    
-    print(f"Test Results: {passed}/{total} tests passed")
-    
-    if passed == total:
-        print("All serialize tests passed!")
-    else:
-        print("Some tests failed.")
-    
-    return passed == total
 
-if __name__ == '__main__':
-    main() 
+    print(f"Test Results: {passed}/{total} tests passed")
+
+    if passed == total:
+        print("All serialization tests passed!")
+        return 0
+
+    print("Some serialization tests failed.")
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,90 +1,91 @@
 """
-Write results to files.
+Write close approach data to CSV or JSON files.
 
-This module provides functions to write close approach results to CSV and JSON files.
+This module provides functions for serializing close approach data
+to structured files.
 """
 
 import csv
 import json
-from pathlib import Path
-from typing import Iterator
-
-from models import CloseApproach
-from helpers import datetime_to_str
 
 
 def write_to_csv(results, filename):
     """
-    Write a stream of CloseApproach objects to a CSV file.
-    
+    Write close approach data to a CSV file.
+
     Args:
-        results: A stream of CloseApproach objects
-        filename: The name of the output CSV file
+        results: An iterable of CloseApproach objects
+        filename: Path to the output CSV file
     """
-    with open(filename, 'w', newline='') as file:
-        writer = csv.writer(file)
-        
-        # Write header
-        writer.writerow([
-            'datetime_utc',
-            'distance_au',
-            'velocity_km_s',
-            'designation',
-            'name',
-            'diameter_km',
-            'potentially_hazardous'
-        ])
-        
-        # Write data rows
+    fieldnames = (
+        "datetime_utc",
+        "distance_au",
+        "velocity_km_s",
+        "designation",
+        "name",
+        "diameter_km",
+        "potentially_hazardous",
+    )
+
+    with open(filename, "w", newline="", encoding="utf-8") as outfile:
+        writer = csv.DictWriter(outfile, fieldnames=fieldnames)
+        writer.writeheader()
+
         for approach in results:
-            # Use serialize method for consistent handling of edge cases
-            approach_data = approach.serialize()
-            neo_data = approach.neo.serialize() if approach.neo else {
-                'designation': approach._designation,
-                'name': '',
-                'diameter_km': '',
-                'potentially_hazardous': False
-            }
-            
-            writer.writerow([
-                approach_data['datetime_utc'],
-                approach_data['distance_au'],
-                approach_data['velocity_km_s'],
-                neo_data['designation'],
-                neo_data['name'],
-                neo_data['diameter_km'],
-                neo_data['potentially_hazardous']
-            ])
+            # Get NEO data
+            neo = approach.neo
+            if neo:
+                designation = neo.designation
+                name = neo.name
+                diameter = neo.diameter
+                hazardous = neo.hazardous
+            else:
+                designation = approach.designation
+                name = ""
+                diameter = float("nan")
+                hazardous = False
+
+            # Write row
+            writer.writerow({
+                "datetime_utc": approach.time_str,
+                "distance_au": approach.distance,
+                "velocity_km_s": approach.velocity,
+                "designation": designation,
+                "name": name or "",
+                "diameter_km": diameter,
+                "potentially_hazardous": hazardous,
+            })
 
 
 def write_to_json(results, filename):
     """
-    Write a stream of CloseApproach objects to a JSON file.
-    
+    Write close approach data to a JSON file.
+
     Args:
-        results: A stream of CloseApproach objects
-        filename: The name of the output JSON file
+        results: An iterable of CloseApproach objects
+        filename: Path to the output JSON file
     """
+    # Convert results to serializable format
     data = []
-    
     for approach in results:
-        # Use serialize method for consistent handling of edge cases
+        # Get approach data
         approach_data = approach.serialize()
-        neo_data = approach.neo.serialize() if approach.neo else {
-            'designation': approach._designation,
-            'name': '',
-            'diameter_km': float('nan'),
-            'potentially_hazardous': False
-        }
-        
-        entry = {
-            "datetime_utc": approach_data['datetime_utc'],
-            "distance_au": approach_data['distance_au'],
-            "velocity_km_s": approach_data['velocity_km_s'],
-            "neo": neo_data
-        }
-        
-        data.append(entry)
-    
-    with open(filename, 'w') as file:
-        json.dump(data, file, indent=2) 
+
+        # Get NEO data
+        neo = approach.neo
+        if neo:
+            approach_data["neo"] = neo.serialize()
+        else:
+            # Create minimal NEO data if not linked
+            approach_data["neo"] = {
+                "designation": approach.designation,
+                "name": "",
+                "diameter_km": float("nan"),
+                "potentially_hazardous": False,
+            }
+
+        data.append(approach_data)
+
+    # Write to file
+    with open(filename, "w", encoding="utf-8") as outfile:
+        json.dump(data, outfile, indent=2)

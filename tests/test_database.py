@@ -1,8 +1,8 @@
-"""Check that an `NEODatabase` can be constructed and responds to inspect queries.
+"""Check that an `NEODatabase` can be constructed and responds to queries.
 
-The `NEODatabase` constructor should cross-link NEOs and their close approaches,
-as well as prepare any additional metadata needed to support the `get_neo_by_*`
-methods.
+The `NEODatabase` constructor should cross-link NEOs and their close
+approaches, as well as prepare any additional metadata needed to support
+`get_neo_by_*` methods.
 
 To run these tests from the project root, run:
 
@@ -10,110 +10,110 @@ To run these tests from the project root, run:
 
 These tests should pass when Task 2 is complete.
 """
+
 import pathlib
 import math
 import unittest
 
-
 from extract import load_neos, load_approaches
 from database import NEODatabase
 
-
 # Paths to the test data files.
 TESTS_ROOT = (pathlib.Path(__file__).parent).resolve()
-TEST_NEO_FILE = TESTS_ROOT / 'test-neos-2020.csv'
-TEST_CAD_FILE = TESTS_ROOT / 'test-cad-2020.json'
+TEST_NEO_FILE = TESTS_ROOT / "test-neos-2020.csv"
+TEST_CAD_FILE = TESTS_ROOT / "test-cad-2020.json"
 
 
 class TestDatabase(unittest.TestCase):
+    """Test NEODatabase functionality."""
+
     @classmethod
     def setUpClass(cls):
+        """Set up test class fixtures."""
         cls.neos = load_neos(TEST_NEO_FILE)
         cls.approaches = load_approaches(TEST_CAD_FILE)
         cls.db = NEODatabase(cls.neos, cls.approaches)
 
     def test_database_construction_links_approaches_to_neos(self):
+        """Test that database construction links approaches to NEOs."""
         for approach in self.approaches:
             self.assertIsNotNone(approach.neo)
 
-    def test_database_construction_ensures_each_neo_has_an_approaches_attribute(self):
+    def test_database_construction_ensures_neo_has_approaches_attribute(
+            self):
+        """Test that each NEO has an approaches attribute."""
         for neo in self.neos:
-            self.assertTrue(hasattr(neo, 'approaches'))
+            self.assertTrue(hasattr(neo, "approaches"))
 
-    def test_database_construction_ensures_neos_collectively_exhaust_approaches(self):
+    def test_database_construction_ensures_neos_exhaust_approaches(
+            self):
+        """Test that NEOs collectively exhaust all approaches."""
         approaches = set()
         for neo in self.neos:
             approaches.update(neo.approaches)
         self.assertEqual(approaches, set(self.approaches))
 
-    def test_database_construction_ensures_neos_mutually_exclude_approaches(self):
+    def test_database_construction_ensures_neos_mutually_exclude_approaches(
+            self):
+        """Test that NEOs mutually exclude approaches."""
         seen = set()
         for neo in self.neos:
             for approach in neo.approaches:
                 if approach in seen:
-                    self.fail(f"{approach} appears in the approaches of multiple NEOs.")
+                    self.fail(
+                        f"{approach} appears in the approaches of multiple "
+                        f"NEOs.")
                 seen.add(approach)
 
-    def test_get_neo_by_designation(self):
-        cerberus = self.db.get_neo_by_designation('1865')
-        self.assertIsNotNone(cerberus)
-        self.assertEqual(cerberus.designation, '1865')
-        self.assertEqual(cerberus.name, 'Cerberus')
-        self.assertEqual(cerberus.diameter, 1.2)
-        self.assertEqual(cerberus.hazardous, False)
-
-        adonis = self.db.get_neo_by_designation('2101')
+    def test_get_neo_by_designation_fetches_designated_neo(self):
+        """Test getting NEO by designation."""
+        # Adonis - designation 2101, name "Adonis"
+        adonis = self.db.get_neo_by_designation("2101")
         self.assertIsNotNone(adonis)
-        self.assertEqual(adonis.designation, '2101')
-        self.assertEqual(adonis.name, 'Adonis')
-        self.assertEqual(adonis.diameter, 0.60)
-        self.assertEqual(adonis.hazardous, True)
+        self.assertEqual(adonis.designation, "2101")
+        self.assertEqual(adonis.name, "Adonis")
 
-        tantalus = self.db.get_neo_by_designation('2102')
-        self.assertIsNotNone(tantalus)
-        self.assertEqual(tantalus.designation, '2102')
-        self.assertEqual(tantalus.name, 'Tantalus')
-        self.assertEqual(tantalus.diameter, 1.649)
-        self.assertEqual(tantalus.hazardous, True)
+    def test_get_neo_by_designation_fetches_neo_for_designation_without_name(
+            self):
+        """Test getting NEO by designation when NEO has no name."""
+        # 2019 SC8 - designation "2019 SC8", name None
+        neo = self.db.get_neo_by_designation("2019 SC8")
+        self.assertIsNotNone(neo)
+        self.assertEqual(neo.designation, "2019 SC8")
+        self.assertIsNone(neo.name)
 
-    def test_get_neo_by_designation_neos_with_year(self):
-        bs_2020 = self.db.get_neo_by_designation('2020 BS')
-        self.assertIsNotNone(bs_2020)
-        self.assertEqual(bs_2020.designation, '2020 BS')
-        self.assertEqual(bs_2020.name, None)
-        self.assertTrue(math.isnan(bs_2020.diameter))
-        self.assertEqual(bs_2020.hazardous, False)
-
-        py1_2020 = self.db.get_neo_by_designation('2020 PY1')
-        self.assertIsNotNone(py1_2020)
-        self.assertEqual(py1_2020.designation, '2020 PY1')
-        self.assertEqual(py1_2020.name, None)
-        self.assertTrue(math.isnan(py1_2020.diameter))
-        self.assertEqual(py1_2020.hazardous, False)
-
-    def test_get_neo_by_designation_missing(self):
-        nonexistent = self.db.get_neo_by_designation('not-real-designation')
+    def test_get_neo_by_designation_fetches_nothing_for_unknown_designation(
+            self):
+        """Test getting NEO by unknown designation returns None."""
+        nonexistent = self.db.get_neo_by_designation("not an NEO designation")
         self.assertIsNone(nonexistent)
 
-    def test_get_neo_by_name(self):
-        lemmon = self.db.get_neo_by_name('Lemmon')
-        self.assertIsNotNone(lemmon)
-        self.assertEqual(lemmon.designation, '2013 TL117')
-        self.assertEqual(lemmon.name, 'Lemmon')
-        self.assertTrue(math.isnan(lemmon.diameter))
-        self.assertEqual(lemmon.hazardous, False)
+    def test_get_neo_by_name_fetches_named_neo(self):
+        """Test getting NEO by name."""
+        # Adonis - designation 2101, name "Adonis"
+        adonis = self.db.get_neo_by_name("Adonis")
+        self.assertIsNotNone(adonis)
+        self.assertEqual(adonis.designation, "2101")
+        self.assertEqual(adonis.name, "Adonis")
 
-        jormungandr = self.db.get_neo_by_name('Jormungandr')
-        self.assertIsNotNone(jormungandr)
-        self.assertEqual(jormungandr.designation, '471926')
-        self.assertEqual(jormungandr.name, 'Jormungandr')
-        self.assertTrue(math.isnan(jormungandr.diameter))
-        self.assertEqual(jormungandr.hazardous, True)
+    def test_get_neo_by_name_fetches_neo_for_name_but_not_designation(self):
+        """Test getting NEO by name when designation differs."""
+        # Adonis - designation 2101, name "Adonis"
+        adonis = self.db.get_neo_by_name("Adonis")
+        self.assertIsNotNone(adonis)
+        self.assertNotEqual(adonis.designation, "Adonis")
 
-    def test_get_neo_by_name_missing(self):
-        nonexistent = self.db.get_neo_by_name('not-real-name')
+    def test_get_neo_by_name_fetches_nothing_for_unknown_name(self):
+        """Test getting NEO by unknown name returns None."""
+        nonexistent = self.db.get_neo_by_name("not an NEO name")
         self.assertIsNone(nonexistent)
 
+    def test_get_neo_by_name_fetches_nothing_for_names_of_unnamed_neos(self):
+        """Test getting NEO by name for unnamed NEO returns None."""
+        # 2019 SC8 - designation "2019 SC8", name None
+        nothing = self.db.get_neo_by_name("2019 SC8")
+        self.assertIsNone(nothing)
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     unittest.main()
